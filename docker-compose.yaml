@@ -1,0 +1,108 @@
+services:
+  orchestrator:
+    build: .
+    expose:
+      - "8080"
+    environment:
+      - PYTHONPATH=/app/src         
+      - JOB_ORCHESTRATOR_STORAGE_BACKEND=postgresql
+      - JOB_ORCHESTRATOR_STORAGE_CONNECTION_STRING=postgresql://joborch:password@postgres:5432/jobs
+      - JOB_ORCHESTRATOR_LOCKING_BACKEND=redis
+      - JOB_ORCHESTRATOR_LOCKING_CONNECTION_STRING=redis://redis:6379/0
+      - JOB_ORCHESTRATOR_WORKER_POOL_MIN_WORKERS=2
+      - JOB_ORCHESTRATOR_WORKER_POOL_MAX_WORKERS=8
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    scale: 3                        
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.settimeout(2); s.connect(('127.0.0.1', 8080))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - orchestrator-network
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: joborch
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: jobs
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U joborch -d jobs"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - orchestrator-network
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - orchestrator-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./alerts.yml:/etc/prometheus/alerts.yml
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - orchestrator-network
+
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_LOG_LEVEL=warn           
+    networks:
+      - orchestrator-network
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    ports:
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+    networks:                     
+      - orchestrator-network
+
+volumes:
+  postgres-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  portainer-data:                  
+
+networks:
+  orchestrator-network:
+    driver: bridge

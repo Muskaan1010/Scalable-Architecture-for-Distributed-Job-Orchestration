@@ -1,0 +1,32 @@
+groups:
+  - name: job_orchestrator_cluster_alerts
+    rules:
+      - alert: DeadLetterQueueActiveFailures
+        expr: job_orchestrator_dlq_pending_count > 0
+        for: 1m
+        labels:
+          severity: critical
+          tier: orchestrator-backend
+        annotations:
+          summary: "Permanently failed jobs detected in the DLQ"
+          description: "There are currently {{ $value }} jobs trapped in the Dead Letter Queue that have exhausted all backoff retries. Action required via the admin CLI or dashboard."
+
+      - alert: JobQueueBackpressureSpike
+        expr: job_orchestrator_queue_total_size > 500
+        for: 5m
+        labels:
+          severity: warning
+          tier: queue-layer
+        annotations:
+          summary: "High queue backpressure detected"
+          description: "The job priority queue has been holding over 500 pending tasks for more than 5 minutes. The worker pool auto-scaler may have reached its max_workers limit."
+
+      - alert: ClusterLeaderMissing
+        expr: absent(cluster_leader_active) or cluster_leader_active == 0
+        for: 30s
+        labels:
+          severity: page
+          tier: coordination-layer
+        annotations:
+          summary: "Cluster split-brain or missing leader node detected"
+          description: "No active instance has held the cluster leader lock lease for over 30 seconds. System garbage collection sweeps and DAG validations are currently halted."

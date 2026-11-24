@@ -1,0 +1,29 @@
+# /etc/systemd/system/job-orchestrator.service
+[Unit]
+Description=Job Orchestrator Service
+After=network.target
+
+[Service]
+Type=simple
+User=joborch
+Group=joborch
+WorkingDirectory=/opt/job-orchestrator
+Environment="PYTHONPATH=/opt/job-orchestrator"
+ExecStart=/opt/job-orchestrator/venv/bin/python app.py
+ExecStop=/bin/kill -SIGTERM $MAINPID
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/job-orchestrator /var/log/job-orchestrator
+
+[Install]
+WantedBy=multi-user.target

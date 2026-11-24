@@ -1,0 +1,22 @@
+worker_pool:
+  min_workers: 4
+  max_workers: 16
+  worker_type: process
+
+storage:
+  backend: postgresql
+  connection_string: postgresql://joborch:password@postgres:5432/jobs
+  pool_size: 20
+
+locking:
+  backend: redis
+  connection_string: redis://redis:6379/0
+  default_ttl: 60.0
+
+logging:
+  level: INFO
+  json_format: true
+
+metrics:
+  enabled: true
+  exporter: prometheus

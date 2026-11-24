@@ -1,0 +1,2 @@
+[console_scripts]
+job-orch = job_orchestrator.cli.main:main
